@@ -5,3 +5,4 @@ google-genai==2.18.1
 weasyprint==69.0
 gspread
 google-auth
+streamlit[pdf]
