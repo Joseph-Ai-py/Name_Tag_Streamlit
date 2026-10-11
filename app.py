@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import streamlit.components.v1 as components
-from pdf_service import build_download_filename, generate_pdf_bytes, generate_o_only_html, generate_a_only_html, generate_b_only_html, generate_c_only_html, generate_de_only_html
+from pdf_service import build_download_filename, build_pdf_integrity_report, generate_pdf_bytes, generate_o_only_html, generate_a_only_html, generate_b_only_html, generate_c_only_html, generate_de_only_html
 
 import json
 import base64
@@ -1334,12 +1334,26 @@ def render_step_preview() -> None:
     data_b = get_state("data_b")
     data_c = get_state("data_c")
     data_de = get_state("data_de")
-    brand_dna = get_state("brand_dna") or {}
     integrity_report = get_state("integrity_report") or {"status": "NOT_CHECKED", "issues": []}
 
     if not brand_info:
         st.info("브랜드 정보가 없습니다. Section O를 먼저 완료해 주세요.")
         return
+
+    try:
+        integrity_report = build_pdf_integrity_report(
+            brand_info,
+            data_a or {},
+            data_b or {},
+            data_c or {},
+            data_de or {},
+            get_state("brand_dna") or {},
+            integrity_report,
+            get_state("decision_traces") or [],
+        )
+        set_state("integrity_report", integrity_report)
+    except Exception as exc:
+        integrity_report = {"status": "FAIL", "issues": [{"problematic_text": str(exc)}]}
 
     is_ready = all([
         isinstance(data_a, dict) and len(data_a) > 0,
@@ -1369,26 +1383,6 @@ def render_step_preview() -> None:
             "DE": bool(data_de),
         })
 
-    st.subheader("Brand DNA")
-    if brand_dna:
-        for section in ["foundation", "why", "who", "promise", "position", "voice", "visual", "behavior", "business"]:
-            with st.expander(section.upper(), expanded=section == "foundation"):
-                st.json(brand_dna.get(section, {}))
-
-    st.subheader("Brand Decision Map")
-    traces = get_state("decision_traces") or []
-    if traces:
-        for trace in traces:
-            st.markdown(
-                f"**{trace.get('stage', '')} · {trace.get('decision_type', '')}**  \n"
-                f"사용자 답변: {trace.get('user_input', '')}  \n"
-                f"AI 해석: {trace.get('ai_interpretation', '')}  \n"
-                f"브랜드 결정: {trace.get('brand_decision', '')}  \n"
-                f"상태: `{trace.get('status', '')}`"
-            )
-    else:
-        st.info("아직 기록된 브랜드 결정이 없습니다.")
-
     status = integrity_report.get("status", "NOT_CHECKED")
     if status == "PASS":
         st.success("Brand Integrity Check · Consistent")
@@ -1402,7 +1396,7 @@ def render_step_preview() -> None:
     if integrity_failed:
         st.error("Integrity 검사에서 FAIL이 발견되어 PDF 생성을 잠시 막았습니다. 문제 필드를 수정한 뒤 다시 검사해 주세요.")
 
-    if st.button("PDF 생성", disabled=not is_ready or integrity_failed, use_container_width=True):
+    if st.button("PDF 생성 및 미리보기", disabled=not is_ready or integrity_failed, use_container_width=True):
         try:
             _set_error(None)
             pdf_bytes = generate_pdf_bytes(
@@ -1422,6 +1416,8 @@ def render_step_preview() -> None:
 
     pdf_bytes = get_state("pdf_bytes")
     if pdf_bytes:
+        st.subheader("PDF 미리보기")
+        st.pdf(pdf_bytes, height=900)
         filename = build_download_filename(brand_info.get("brand_name", "brand"))
         st.download_button(
             label="PDF 다운로드",

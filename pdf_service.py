@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from urllib.parse import quote
 
+from brand_dna import check_brand_integrity
 from pdf_builder import assemble_html
 
 from pdf_builder import (
@@ -52,6 +53,15 @@ def generate_pdf_bytes(
         print(f"[PDF] HTML generation failed: {exc}")
         raise RuntimeError("PDF용 HTML을 생성하지 못했습니다.") from exc
 
+    rendered_report = check_brand_integrity(
+        brand_info,
+        brand_dna,
+        {"rendered_html": html_content},
+    )
+    if rendered_report.get("status") == "FAIL":
+        terms = ", ".join(issue.get("problematic_text", "알 수 없는 문구") for issue in rendered_report.get("issues", []))
+        raise RuntimeError(f"PDF 무결성 검사에 실패했습니다. 문제 문구: {terms}")
+
     try:
         pdf_bytes = HTML(
             string=html_content,
@@ -62,6 +72,24 @@ def generate_pdf_bytes(
     except Exception as exc:
         print(f"[PDF] PDF rendering failed: {exc}")
         raise RuntimeError("PDF 렌더링에 실패했습니다. 이미지 경로와 PDF 실행 환경을 확인해 주세요.") from exc
+
+
+def build_pdf_integrity_report(
+    brand_info: dict,
+    data_a: dict,
+    data_b: dict,
+    data_c: dict,
+    data_de: dict,
+    brand_dna: dict | None = None,
+    integrity_report: dict | None = None,
+    decision_traces: list[dict] | None = None,
+) -> dict:
+    html_content = assemble_html(brand_info, data_a, data_b, data_c, data_de, brand_dna, integrity_report, decision_traces)
+    return check_brand_integrity(
+        brand_info,
+        brand_dna,
+        {"rendered_html": html_content},
+    )
 
 
 def build_download_filename(brand_name: str) -> str:

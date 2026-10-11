@@ -289,30 +289,65 @@ def _list_cards(items, label):
     return cards or f"<div class='card'><div class='c-body'>{label} 데이터가 아직 없습니다.</div></div>"
 
 
+def _section_data(data, wrapper_key):
+    if not isinstance(data, dict):
+        return {}
+    wrapped = data.get(wrapper_key)
+    return wrapped if isinstance(wrapped, dict) else data
+
+
 def build_b4_customer_swot(B_data):
-    data = B_data.get('data_b', B_data) if isinstance(B_data, dict) else {}
-    columns = [("Strengths", "강점", data.get("strengths", [])), ("Weaknesses", "약점", data.get("weaknesses", [])), ("Opportunities", "기회", data.get("opportunities", [])), ("Threats", "위협", data.get("threats", []))]
+    data = _section_data(B_data, 'data_b')
+    swot = data.get('customer_swot', {})
+    if not isinstance(swot, dict) or not swot:
+      swot = data
+    columns = [("Strengths", "강점", swot.get("strengths", [])), ("Weaknesses", "약점", swot.get("weaknesses", [])), ("Opportunities", "기회", swot.get("opportunities", [])), ("Threats", "위협", swot.get("threats", []))]
     quadrants = "".join(f"<div><div class='c-lbl'>{title} · {ko}</div>{_list_cards(items, ko)}</div>" for title, ko, items in columns)
-    responses = "".join(f"<div class='promise-block'><div class='ch'>{e(item.get('swot_type', ''))} · {e(item.get('customer_issue', ''))}</div><div class='ct'><b>Brand Response:</b> {e(item.get('brand_response', ''))}<br><b>Expected Effect:</b> {e(item.get('expected_effect', ''))}</div></div>" for item in data.get('brand_responses', []))
-    return f"""<div class='section'><div class='sec-hdr'><span class='sec-num'>Section B-4 · Customer SWOT</span><span class='sec-title'>고객의 현재 상태와 전략적 대응</span><span class='sec-sub'>{e(data.get('strategic_reasoning', ''))}</span></div><div class='grid-2'>{quadrants}</div><div class='c-lbl'>Strategic Response · 브랜드 대응</div>{responses or '<div class="card">등록된 대응이 없습니다.</div>'}</div>"""
+    responses = "".join(f"<div class='promise-block'><div class='ch'>{e(item.get('swot_type', ''))} · {e(item.get('customer_issue', ''))}</div><div class='ct'><b>Brand Response:</b> {e(item.get('brand_response', ''))}<br><b>Expected Effect:</b> {e(item.get('expected_effect', ''))}</div></div>" for item in swot.get('brand_responses', []))
+    return f"""<div class='section'><div class='sec-hdr'><span class='sec-num'>Section B-4 · Customer SWOT</span><span class='sec-title'>고객의 현재 상태와 전략적 대응</span><span class='sec-sub'>{e(swot.get('strategic_reasoning', ''))}</span></div><div class='grid-2'>{quadrants}</div><div class='c-lbl'>Strategic Response · 브랜드 대응</div>{responses or '<div class="card">등록된 대응이 없습니다.</div>'}</div>"""
 
 
 def build_b5_business_model(B_data):
-    data = B_data.get('data_b', B_data) if isinstance(B_data, dict) else {}
-    keys = [("Customer Problem", "customer_problem"), ("Value Proposition", "value_proposition"), ("Free Experience", "free_experience"), ("Paid Value", "paid_value"), ("Retention", "retention_loop"), ("Referral", "referral_loop")]
-    flow = "".join(f"<div class='card'><div class='c-lbl'>{label}</div><div class='c-ttl'>{e(data.get(key, {}).get('title', ''))}</div><div class='c-body'>{e(data.get(key, {}).get('description', ''))}</div></div>" for label, key in keys)
-    hypotheses = "".join(f"<div class='promise-block'><div class='ch'>Hypothesis</div><div class='ct'>{e(item.get('hypothesis', ''))}<br><b>Why:</b> {e(item.get('why_it_matters', ''))}<br><b>Validation:</b> {e(item.get('validation_method', ''))}</div></div>" for item in data.get('business_hypotheses', []))
-    return f"""<div class='section'><div class='sec-hdr'><span class='sec-num'>Section B-5 · Business Model</span><span class='sec-title'>고객 가치에서 사업 가치로</span><span class='sec-sub'>{e(data.get('business_model_summary', '검증 전 사업 모델 가설'))}</span></div><div class='grid-2'>{flow}</div><div class='c-lbl'>Business Hypotheses · 검증이 필요한 가설</div>{hypotheses or '<div class="card">등록된 사업 가설이 없습니다.</div>'}</div>"""
+  data = _section_data(B_data, 'data_b')
+  model = data.get('business_model', {})
+  if not isinstance(model, dict) or not model:
+    model = data
+  keys = [("Customer Problem", "customer_problem"), ("Value Proposition", "value_proposition"), ("Free Experience", "free_experience"), ("Paid Value", "paid_value"), ("Retention", "retention_loop"), ("Referral", "referral_loop")]
+  flow = "".join(f"<div class='card'><div class='c-lbl'>{label}</div><div class='c-ttl'>{e(model.get(key, {}).get('title', ''))}</div><div class='c-body'>{e(model.get(key, {}).get('description', ''))}</div></div>" for label, key in keys)
+  hypotheses = "".join(f"<div class='promise-block'><div class='ch'>Hypothesis</div><div class='ct'>{e(item.get('hypothesis', ''))}<br><b>Why:</b> {e(item.get('why_it_matters', ''))}<br><b>Validation:</b> {e(item.get('validation_method', ''))}</div></div>" for item in model.get('business_hypotheses', []))
+  return f"""<div class='section'><div class='sec-hdr'><span class='sec-num'>Section B-5 · Business Model</span><span class='sec-title'>고객 가치에서 사업 가치로</span><span class='sec-sub'>{e(model.get('business_model_summary', '검증 전 사업 모델 가설'))}</span></div><div class='grid-2'>{flow}</div><div class='c-lbl'>Business Hypotheses · 검증이 필요한 가설</div>{hypotheses or '<div class="card">등록된 사업 가설이 없습니다.</div>'}</div>"""
+
+
+def _value_label(key):
+  return str(key).replace('_', ' ').strip().title()
+
+
+def _render_structured_value(value, depth=0):
+  if isinstance(value, dict):
+    rows = []
+    for key, child in value.items():
+      rows.append(
+        f"<div style='margin:4px 0 4px {depth * 10}px;'><strong>{e(_value_label(key))}</strong>: {_render_structured_value(child, depth + 1)}</div>"
+      )
+    return ''.join(rows) or '<span style="color:var(--text-muted);">-</span>'
+  if isinstance(value, list):
+    items = ''.join(f"<li>{_render_structured_value(item, depth + 1)}</li>" for item in value)
+    return f"<ul style='margin:4px 0 4px 16px;'>{items}</ul>" if items else '<span style="color:var(--text-muted);">-</span>'
+  return e(value) or '<span style="color:var(--text-muted);">-</span>'
 
 
 def build_brand_dna_summary(dna, integrity_report, decision_traces=None):
-    sections = []
-    for key in ["why", "who", "promise", "position", "voice", "visual", "behavior", "business"]:
-      value = dna.get(key, {}) if isinstance(dna, dict) else {}
-      sections.append(f"<div class='card'><div class='c-lbl'>{e(key.upper())}</div><div class='c-body'>{e(value)}</div></div>")
-    status = e(integrity_report.get('status', 'NOT_CHECKED'))
-    trace_html = "".join(f"<div class='promise-block'><div class='ch'>{e(trace.get('stage', ''))} · {e(trace.get('status', ''))}</div><div class='ct'><b>User:</b> {e(trace.get('user_input', ''))}<br><b>Interpretation:</b> {e(trace.get('ai_interpretation', ''))}<br><b>Decision:</b> {e(trace.get('brand_decision', ''))}</div></div>" for trace in (decision_traces or []))
-    return f"""<div class='section'><div class='sec-hdr'><span class='sec-num'>Brand DNA · Decision Summary</span><span class='sec-title'>브랜드 DNA 한 장 요약</span><span class='sec-sub'>사용자의 결정과 단계별 결과를 통합한 canonical source of truth입니다.</span></div><div class='grid-2'>{''.join(sections)}</div><div class='c-lbl'>Brand Decision Map</div>{trace_html or '<div class="card">기록된 Decision Trace가 없습니다.</div>'}<div class='hl-box'><b>Brand Integrity Check · {status}</b></div></div>"""
+  sections = []
+  for key in ["foundation", "why", "who", "promise", "position", "voice", "visual", "behavior", "business"]:
+    value = dna.get(key, {}) if isinstance(dna, dict) else {}
+    sections.append(f"<div class='card'><div class='c-lbl'>{e(key.upper())}</div><div class='c-body'>{_render_structured_value(value)}</div></div>")
+  status = e(integrity_report.get('status', 'NOT_CHECKED'))
+  trace_html = "".join(
+    f"<div class='promise-block'><div class='ch'>{e(trace.get('stage', ''))} · {e(trace.get('decision_type', ''))} · {e(trace.get('status', ''))}</div><div class='ct'><b>User Input:</b> {e(trace.get('user_input', ''))}<br><b>AI Interpretation:</b> {e(trace.get('ai_interpretation', ''))}<br><b>Brand Decision:</b> {e(trace.get('brand_decision', ''))}<br><b>Rationale:</b> {e(trace.get('rationale', ''))}</div></div>"
+    for trace in (decision_traces or [])
+  )
+  appendix = f"""<div class='section'><div class='sec-hdr'><span class='sec-num'>Appendix · Internal Review</span><span class='sec-title'>내부 검토용 결정 기록</span><span class='sec-sub'>브랜드 결과를 추적하기 위한 내부 기록입니다. 고객용 핵심 가이드와 구분해 보관합니다.</span></div>{trace_html or '<div class="card">기록된 Decision Trace가 없습니다.</div>'}</div>"""
+  return f"""<div class='section'><div class='sec-hdr'><span class='sec-num'>Brand DNA · Summary</span><span class='sec-title'>브랜드 DNA 요약</span><span class='sec-sub'>확정된 브랜드 기준과 전략 결과를 사람이 읽을 수 있는 형태로 정리합니다.</span></div><div class='grid-2'>{''.join(sections)}</div><div class='hl-box'><b>Brand Integrity Check · {status}</b></div></div>{appendix}"""
 
 # HTML 이스케이프 함수: 브랜드 정보나 AI 분석 결과에 특수문자가 포함되어 있을 때 레이아웃이 깨지는 것을 방지하기 위해 사용합니다.
 def e(text):
@@ -574,11 +609,8 @@ def build_a3_story(A_data):
         raw_story = A_data.get('brand_story', '')
         story_text = raw_story.get('brand_story', '') if isinstance(raw_story, dict) else raw_story
 
-    # 1. 스토리의 첫 문장이나 핵심 철학을 상단 킬러 인용구로 자동 추출 (숲결 맞춤형 방어 코드)
-    # 문서의 웅장함을 위해 상단에 배치할 대형 카피라인
-    highlight_quote = "버려진 것들에 깃든 맑은 빛, 당신의 창가에서 시작될 지속 가능한 아름다움."
-    if "물결" in story_text:
-        highlight_quote = "마음이 쉬어가는 소품의 온도, 햇빛에 비친 물결처럼 반짝이는 일상."
+    first_paragraph = next((p.strip() for p in str(story_text).split('\n') if p.strip()), '')
+    highlight_quote = first_paragraph[:140] or "브랜드가 세상에 전하고 싶은 핵심 이야기"
 
     raw_paras = [p for p in str(story_text).split('\n')]
     paras = []
@@ -613,7 +645,7 @@ def build_a3_story(A_data):
 
   <div style="margin-bottom: 20px; padding-left: 6px;">
     <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; display: block; margin-bottom: 4px;">Chapter 01. Narrative</span>
-    <h3 style="font-family: 'Noto Serif KR', serif; font-size: 20px; font-weight: 700; color: var(--text-main);">숲과 햇살, 그리고 본연의 결에 대하여</h3>
+    <h3 style="font-family: 'Noto Serif KR', serif; font-size: 20px; font-weight: 700; color: var(--text-main);">브랜드가 시작된 이유</h3>
   </div>
 
   <div class="story" style="background: var(--surface); border: 1px solid var(--border-light); border-radius: 14px; padding: 24px 28px; box-shadow: 0 4px 18px rgba(0,0,0,0.012);">
@@ -680,7 +712,7 @@ def build_a4_verbal_toolkit(A_data):
 
   <div class="slogan-box" style="padding: 18px 14px; margin: 0 0 18px 0;">
     <div class="sl-en" style="font-size: 16.5px; font-weight: 600; color: var(--sd); font-style: normal; letter-spacing: 0.04em; text-transform: uppercase;">
-      {main_slogan_en if main_slogan_en else "THE TEMPERATURE OF REST, THE TEXTURE OF LIGHT."}
+      {main_slogan_en if main_slogan_en else "등록된 영문 슬로건이 없습니다."}
     </div>
     <div style="font-size: 10px; color: var(--text-muted); margin-top: 6px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700;">Global Verbal Slogan</div>
   </div>
@@ -1330,7 +1362,7 @@ def build_c2_typography(C_data):
 
     <div style="padding: 20px 0; border-top: 1px dashed var(--border-light); border-bottom: 1px dashed var(--border-light); margin-bottom: 16px;">
       <div style="font-family: '{s_google}', sans-serif; font-weight: {s_weight}; font-size: 14.5px; line-height: 1.8; color: var(--text-main); text-align: justify;">
-        숲결은 버려진 것들에 깃든 빛을 발견합니다. 우리는 무심코 지나치는 폐플라스틱과 조각난 유리에서 햇살 아래 반짝이는 물결의 아름다움을 보았습니다. 본 서체는 정보 전달의 명확성을 위해 장식성을 배제하고 현대적인 가독성을 극대화합니다.
+        이 샘플 문장은 본문용 서체의 가독성과 정보 위계를 확인하기 위한 예시입니다. 브랜드의 실제 메시지는 위 사용 기준과 확정된 언어 자산을 따릅니다.
       </div>
     </div>
 
